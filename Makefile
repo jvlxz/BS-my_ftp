@@ -1,27 +1,44 @@
 ##
 ## EPITECH PROJECT, 2023
-## Makefile
+## BS-my_ftp
 ## File description:
-## MAKEFILE
+## Makefile
 ##
 
-CFLAGS = -g3 -lncurses -Wno-unused-command-line-argument
+CC ?=gcc
+RM = rm -f
 
-SRC	=	$(wildcard *.c) \
+NAME =  my_ftp
+SRCS = $(wildcard *.c) \
+       
+       $(wildcard src/*.c) \
 
-OBJ	=	$(SRC:.c=.o)
+OBJS = $(SRCS:.c=.o)
+DEPS = $(OBJS:.o=.d)
 
-NAME	=	my_ftp
+CFLAGS += -Wall -Wextra -I include -g3
 
-all:	$(NAME)
+all: $(NAME)
 
-$(NAME):	$(OBJ)
-	gcc -o $(NAME) $(OBJ) $(CFLAGS)
+$(NAME): $(OBJS)
+	$(CC) $(CFLAGS) -o $(NAME) $(OBJS)
+
+-include $(DEPS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -MMD -c $< -o $@
 
 clean:
-	rm -f $(OBJ)
+	$(RM) $(OBJS)
+	$(RM) $(DEPS)
 
-fclean:	clean
-	rm -f $(NAME)
 
-re:	fclean all
+fclean: clean
+	$(RM) $(NAME)
+	$(RM) $(wildcard vgcore*)
+
+re: fclean all
+
+
+
+.PHONY: all clean fclean re tests_run
