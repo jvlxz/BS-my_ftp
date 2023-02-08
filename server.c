@@ -13,13 +13,16 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/select.h>
 
 void server() {
-    int sockfd, new_sockfd;
+    int sockfd;
     struct sockaddr_in addr;
     int one = 1;
     struct sockaddr_in cli_addr;
-    socklen_t clilen;
+    socklen_t clilen = sizeof(cli_addr);
+    int ndfs;
+    fd_set cur_socket, next_socket;
 
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         printf("Error creating socket\n");
@@ -45,26 +48,33 @@ void server() {
         printf("Error listening for incoming connections\n");
         return;
     }
+    FD_ZERO(&cur_socket);
+    FD_SET(sockfd, &cur_socket);
     while(1) {
-        char client_ip[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &cli_addr.sin_addr, client_ip, sizeof(client_ip));
-        printf("Client connected from %s:%d\n", client_ip, ntohs(cli_addr.sin_port));
-
-        new_sockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
-        write(new_sockfd, "Hello client!\n", sizeof("Hello client!\n"));
-        int pid = fork();
-        if (pid == 0) {
-            sleep(10);
-            char client_ip[INET_ADDRSTRLEN];
-            inet_ntop(AF_INET, &cli_addr.sin_addr, client_ip, sizeof(client_ip));
-            printf("Client connected from %s:%d\n", client_ip, ntohs(cli_addr.sin_port));
-
-            new_sockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
-            write(new_sockfd, "Hello client!\n", sizeof("Hello client!\n"));
-            close(new_sockfd);
-            exit(0);
-        } else
-            close(new_sockfd);
+        next_socket = cur_socket;
+        if (select(FD_SETSIZE, &next_socket, NULL, NULL, NULL) < 0) {
+            printf("Error selecting socket");
+        }
+        for (int i = 0; i < FD_SETSIZE; i++) {
+            if (FD_ISSET(i, &next_socket)) {
+                if (i == sockfd){
+                    int new_sockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
+                    if (new_sockfd < 0) {
+                        printf("Error accepting connection\n");
+                    } else {
+                        FD_SET(new_sockfd, &cur_socket);
+                        printf("Connection accepted\n");
+                        int n = write(new_sockfd, "Hello client!\n", sizeof("Hello client!\n"));
+                        if (n < 0) {
+                            printf("Error writing to socket\n");
+                        }
+                        close(new_sockfd);
+                        printf("client closed\n");
+                        FD_CLR(new_sockfd, &cur_socket);
+                    }
+                }
+            }
+        }
     }
     close(sockfd);
 }
